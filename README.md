@@ -15,3 +15,10 @@ This app also provides [Stable Diffusion Web UI](https://github.com/AUTOMATIC111
 ## License
 
 MIT
+
+
+# Build Locally:
+
+# Not sure what is causing the build issue with npm install. 
+npm install --legacy-peer-deps
+

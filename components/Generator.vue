@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { debounce } from 'perfect-debounce'
+import JSZip from 'jszip'
 import { sendParentEvent } from '~/logic/messaging'
 import { generateQRCode } from '~/logic/generate'
 import { dataUrlGeneratedQRCode, defaultGeneratorState, generateQRCodeInfo, hasParentWindow, isLargeScreen, qrcode } from '~/logic/state'
@@ -8,17 +9,60 @@ import type { State } from '~/logic/types'
 import { MarkerSubShapeIcons, MarkerSubShapes, PixelStyleIcons, PixelStyles } from '~/logic/types'
 import { getAspectRatio, sendQRCodeToCompare } from '~/logic/utils'
 
+// Set this to false to hide the panel
 const props = defineProps<{
   state: State
-}>()
+}>(); const rightPanelEl = ref<HTMLElement>()
 
-const rightPanelEl = ref<HTMLElement>()
 const uploadTarget = ref<'image' | 'qrcode'>()
+const showRightPanel = ref(false)
+const showRightPanelTextarea = ref(false)
 const state = computed(() => props.state.qrcode)
 const rightPanelRect = reactive(useElementBounding(rightPanelEl))
 const floating = computed(() => rightPanelRect.top < 10 && isLargeScreen.value)
-
+const inputText = ref('') // stores the user's input
 const canvas = ref<HTMLCanvasElement>()
+async function downloadAllQRCodes() {
+  const zip = new JSZip()
+
+  inputItems.value.forEach((item, index) => {
+    if (generatedQRCodes.value[index]) {
+      const filename = `${item.trim().replace(/\W/g, '_')}.png`
+      const imgData = generatedQRCodes.value[index].split(',')[1]
+      zip.file(filename, imgData, { base64: true })
+    }
+  })
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  const a = document.createElement('a')
+
+  // Get current date and time
+  const now = new Date()
+  const formattedDate = now.toISOString().split('T')[0] // Format: YYYY-MM-DD
+  const formattedTime = now.toTimeString().split(' ')[0].replace(/:/g, '') // Format: HHMMSS
+
+  // Set the download file name with date and time
+  a.download = `qrcodes_${formattedDate}_${formattedTime}.zip`
+
+  a.href = URL.createObjectURL(zipBlob)
+  a.click()
+}
+
+// const loopNumber = ref(1) // default loop number
+const generatedQRCodes = ref([])
+const inputItems = computed(() => {
+  return inputText.value.split(',') // assuming comma as the delimiter
+})
+async function generateMultipleQRCodes() {
+  generatedQRCodes.value = [] // reset the list
+
+  for (const item of inputItems.value) {
+    // Update the QR code state with the current item
+    state.value.text = item.trim() // trim to remove extra spaces
+    await generateQRCode(canvas.value, state.value)
+    generatedQRCodes.value.push(canvas.value.toDataURL())
+  }
+}
 
 async function run() {
   if (!canvas.value)
@@ -195,13 +239,28 @@ watch(
 </script>
 
 <template>
+  <div>
+    <textarea
+      v-model="inputText" type="text" placeholder="Enter items separated by a comma"
+      class="border-base rounded bg-secondary px-4 py-2"
+    />
+    <button
+      class="text-sm op75 text-button hover:op100"
+      @click="generateMultipleQRCodes"
+    >
+      Generate QR Codes
+    </button>
+  </div>
+
+  <hr>
   <div grid="~ cols-[38rem_1fr] gap-2" lt-lg="flex flex-col-reverse">
     <div flex="~ col gap-2">
       <textarea
+        v-if="showRightPanelTextarea"
         v-model="state.text"
         placeholder="Text to encode"
-        border="~ base rounded"
-        bg-secondary px4 py2
+        border="~ base rounded" bg-secondary px4
+        py2
       />
       <div border="~ base rounded" flex="~ col gap-2" p4>
         <OptionItem title="Error Correction" div>
@@ -451,7 +510,7 @@ watch(
         </button>
       </div>
     </div>
-    <div ref="rightPanelEl">
+    <div ref="rightPanelEl" :style="{ display: showRightPanel ? 'block' : 'none' }">
       <div
         flex="~ col gap-2"
         :style="floating ? {
@@ -559,4 +618,39 @@ watch(
     :state="props.state"
     @update:model-value="uploadQR = undefined"
   />
+  <div>
+    <div v-for="(qrCodeDataUrl, index) in generatedQRCodes" :key="index" class="qr-code-image">
+      <img :src="qrCodeDataUrl" alt="Generated QR Code">
+    </div>
+  </div>
+  <button class="text-sm op75 text-button hover:op100" @click="downloadAllQRCodes">
+    Download All as ZIP
+  </button>
 </template>
+
+<style scoped>
+.mode-switcher {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.mode-button {
+  padding: 10px 20px;
+  border: 1px solid #ccc;
+  margin: 0 10px;
+  cursor: pointer;
+}
+
+.mode-button.active {
+  background-color: #eee;
+}
+
+.qr-code-image {
+  border: 0.5px solid gray; /* Black border */
+  margin: 10px; /* Spacing around each QR code */
+  padding: 5px; /* Padding around the image */
+  background-color: #fff; /* White background to maintain contrast */
+  display: inline-block; /* Align images nicely */
+}
+</style>

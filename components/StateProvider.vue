@@ -73,6 +73,14 @@ onMounted(() => {
     </button>
     <button
       flex="~ gap-1.5 items-center" text-button
+      :class="view === 'bulk' ? 'bg-secondary' : 'op50'"
+      @click="view = 'bulk'"
+    >
+      <div i-ri-camera-line />
+      bulk
+    </button>
+    <button
+      flex="~ gap-1.5 items-center" text-button
       :class="view === 'compare' ? 'bg-secondary' : 'op50'"
       @click="view = 'compare'"
     >
@@ -110,6 +118,9 @@ onMounted(() => {
 
   <div v-show="view === 'generator'" w-full>
     <Generator :state="state" />
+  </div>
+  <div v-show="view === 'bulk'" w-full>
+    <bulk :state="state" />
   </div>
   <div v-show="view === 'compare'" w-full>
     <div v-if="!isLargeScreen" flex px20 py50 text-center op50>
