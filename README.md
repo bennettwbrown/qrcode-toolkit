@@ -19,6 +19,13 @@ MIT
 
 # Build Locally:
 
-# Not sure what is causing the build issue with npm install. 
-npm install --legacy-peer-deps
+1. Install local dependencies
+    `npm install --legacy-peer-deps`
+
+2. Run server locally
+    `npm run dev`
+
+3. Navigate to web browser
+    `localhost:3000`
+
 
